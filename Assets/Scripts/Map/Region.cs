@@ -13,6 +13,8 @@ public class Region : MonoBehaviour
     [HideInInspector] public GameSettings settings;
     public int regionX;
     public int regionY;
+    public float noiseScale = 0.25F;
+    public float heightScale = 1f;
 
     private MeshRenderer meshRenderer;
     private MeshFilter meshFilter;
@@ -199,21 +201,43 @@ public class Region : MonoBehaviour
     }
 
 
+    Vector3 getVertexHeight(Vector3 tilePos, Vector3 vertPos)
+    {
+        // Width and height of the texture in pixels.
+        float xPos = (transform.position + tilePos + vertPos).x;
+        float yPos = (transform.position + tilePos + vertPos).z;
+
+        // The origin of the sampled area in the plane.
+        float xOrg = 0;
+        float yOrg = 0;
+
+        // The number of cycles of the basic noise pattern that are repeated
+        // over the width and height of the texture.
+
+        float xCoord = (xOrg + xPos) * noiseScale;
+        float yCoord = (yOrg + yPos) * noiseScale;
+        float sample = Mathf.PerlinNoise(xCoord, yCoord);
+
+        Debug.Log(new Vector2(xCoord, yCoord));
+
+        return new Vector3(0, sample, 0) * heightScale;
+    }
+
     // Creates a tile at a givin position 
-    void CreateTileForRegion(Vector3 position, int dataX, int dataY)
+    void CreateTileForRegion(Vector3 position, int regionBasedX, int regionBasedY)
     {
         // Tile Data creation and location Assignment
         // current x across entire map + number of tiles in the combined regions underneath + number of tiles underneath in current region
-        int TileID = regionX * regionWidth + dataX +
+        int TileID = regionX * regionWidth + regionBasedX +
             regionY * regionWidth * MapGenerator.MapWidth * regionHeight +
-            dataY * regionWidth * MapGenerator.MapWidth;
+            regionBasedY * regionWidth * MapGenerator.MapWidth;
 
-        gameData.GameTiles[TileID] = new Tile(transform.position + position, TileID, gameData, meshFilter, subMeshVertIndex + 8, settings);
+        gameData.GameTiles[TileID] = new Tile(transform.position + position + getVertexHeight(position, mainTileVerts[14]), TileID, gameData, meshFilter, subMeshVertIndex + 8, settings);
 
         //Creates verts for tile based on predifined array of locations + location modifier 
         for (int x = 0; x < mainTileVerts.Length; x++)
         {
-            verticies[vertIndex + x] = mainTileVerts[x] + position;
+            verticies[vertIndex + x] = mainTileVerts[x] + position + getVertexHeight(position, mainTileVerts[x]);
             uv[vertIndex + x] = mainTileUVs[x];
         }
 
@@ -229,7 +253,7 @@ public class Region : MonoBehaviour
         // Creates the submesh tiles and places them towards the end of the vertex list
         for (int x = 0; x < subMeshTileVerts.Length; x++)
         {
-            verticies[subMeshVertIndex + x] = subMeshTileVerts[x] + position + TILEDISPLAYHEIGHT;
+            verticies[subMeshVertIndex + x] = subMeshTileVerts[x] + position + TILEDISPLAYHEIGHT + getVertexHeight(position, subMeshTileVerts[x]);
             if (x > 7)
             {
                 FactionColour UvCoord = (from faction in settings.factionColours where (faction.FactionInt == -1) select faction).First();

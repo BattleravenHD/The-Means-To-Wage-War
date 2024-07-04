@@ -49,6 +49,8 @@ MonoBehaviour:
   settings: {fileID: 0}
   regionX: 0
   regionY: 0
+  noiseScale: 0.25
+  heightScale: 2
 --- !u!33 &7721536760637203520
 MeshFilter:
   m_ObjectHideFlags: 0
