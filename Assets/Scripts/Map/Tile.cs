@@ -38,9 +38,10 @@ public class Tile
     {
         FactionColour UvCoord = (from fact in gameSettings.factionColours where (fact.FactionInt == faction) select fact).First();
         Vector2[] uv = tileMesh.mesh.uv;
-        for (int i = uvStartIndex; i < uvStartIndex + 6; i++)
+        // The Uv start index in from the back because the number of vericies infront of it are unknown so work from the back based on the amount we do know
+        for (int i = 7; i < 15; i++)
         {
-            uv[i] = UvCoord.UVCoord;
+            uv[uv.Length - 1 + uvStartIndex + i] = UvCoord.UVCoord;
         }
         tileMesh.mesh.uv = uv;
     }
@@ -49,9 +50,10 @@ public class Tile
     {
         FactionColour UvCoord = (from fact in gameSettings.factionColours where (fact.FactionInt == FactionOwnerShip) select fact).First();
         Vector2[] uv = tileMesh.mesh.uv;
-        for (int i = uvStartIndex; i < uvStartIndex + 6; i++)
+
+        for (int i = 7; i < 15; i++)
         {
-            uv[i] = UvCoord.UVCoord;
+            uv[uv.Length - 1 + uvStartIndex + i] = UvCoord.UVCoord;
         }
         tileMesh.mesh.uv = uv;
     }

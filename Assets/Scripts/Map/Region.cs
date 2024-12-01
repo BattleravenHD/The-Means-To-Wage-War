@@ -21,18 +21,18 @@ public class Region : MonoBehaviour
 
     GameData gameData;
     int vertIndex = 0;
-    int subMeshVertIndex = 15 * regionHeight * regionWidth;
-    int triIndex = 0;
-    int subMeshTriIndex = 0;
+    int subMeshVertIndex = 0;
+
 
     Vector3 TILEDISPLAYHEIGHT = Vector3.up / 100;
 
-    // Array of all verts, Tris, UV for a region (used array for perfomance reasons as list has smaller max size and takes slightly longer to compute)
     // submesh array to allow for a tile overlay to show tile borders and to do faction colours and other tile functions
-    Vector3[] verticies = new Vector3[15 * regionHeight * regionWidth + 14 * regionHeight * regionWidth];
-    int[] mainTriangels = new int[60 * regionHeight * regionWidth];
-    int[] subMeshTriangles = new int[42 * regionHeight * regionWidth];
-    Vector2[] uv = new Vector2[15 * regionHeight * regionWidth + 14 * regionHeight * regionWidth];
+    List<Vector3> verticies = new List<Vector3>();
+    List<Vector3> submeshVerticies = new List<Vector3>();
+    List<int> mainTriangels = new List<int>();
+    List<int> subMeshTriangles = new List<int>();
+    List<Vector2> uv = new List<Vector2>();
+    List<Vector2> subMeshUv = new List<Vector2>();
 
     public static readonly Vector3[] mainTileVerts = new Vector3[15]
         {
@@ -184,20 +184,30 @@ public class Region : MonoBehaviour
             }
         }
 
-        tileMesh.vertices = verticies;
-        tileMesh.SetTriangles(mainTriangels, 0);
-        tileMesh.SetTriangles(subMeshTriangles, 1);
+        //Verticies merged so the tris index have to be updated to match the new vert indexs
+        for (int i = 0; i < subMeshTriangles.Count; i++)
+        {
+            subMeshTriangles[i] += verticies.Count();
+        }
 
-        tileMesh.uv = uv;
+        verticies.AddRange(submeshVerticies);
+
+        tileMesh.vertices = verticies.ToArray();
+        tileMesh.SetTriangles(mainTriangels.ToArray(), 0);
+        tileMesh.SetTriangles(subMeshTriangles.ToArray(), 1);
+
+        uv.AddRange(subMeshUv);
+
+        tileMesh.uv = uv.ToArray();
 
         tileMesh.RecalculateNormals();
 
         meshFilter.mesh = tileMesh;
 
-        verticies = null;
-        uv = null;
-        subMeshTriangles = null;
-        mainTriangels = null;
+        verticies.Clear();
+        uv.Clear();
+        subMeshTriangles.Clear();
+        mainTriangels.Clear();
     }
 
 
@@ -218,8 +228,6 @@ public class Region : MonoBehaviour
         float yCoord = (yOrg + yPos) * noiseScale;
         float sample = Mathf.PerlinNoise(xCoord, yCoord);
 
-        Debug.Log(new Vector2(xCoord, yCoord));
-
         return new Vector3(0, sample, 0) * heightScale;
     }
 
@@ -232,13 +240,13 @@ public class Region : MonoBehaviour
             regionY * regionWidth * MapGenerator.MapWidth * regionHeight +
             regionBasedY * regionWidth * MapGenerator.MapWidth;
 
-        gameData.GameTiles[TileID] = new Tile(transform.position + position + getVertexHeight(position, mainTileVerts[14]), TileID, gameData, meshFilter, subMeshVertIndex + 8, settings);
+        gameData.GameTiles[TileID] = new Tile(transform.position + position + getVertexHeight(position, mainTileVerts[14]), TileID, gameData, meshFilter, -subMeshTileUVs.Length * regionWidth * regionHeight + subMeshVertIndex, settings);
 
         //Creates verts for tile based on predifined array of locations + location modifier 
         for (int x = 0; x < mainTileVerts.Length; x++)
         {
-            verticies[vertIndex + x] = mainTileVerts[x] + position + getVertexHeight(position, mainTileVerts[x]);
-            uv[vertIndex + x] = mainTileUVs[x];
+            verticies.Add(mainTileVerts[x] + position + getVertexHeight(position, mainTileVerts[x]));
+            uv.Add(mainTileUVs[x]);
         }
 
         //Creates tris based on tri array
@@ -246,24 +254,25 @@ public class Region : MonoBehaviour
         {
             for (int i = 0; i < 3; i++)
             {
-                mainTriangels[triIndex + x * 3 + i] = mainTileTris[x,i] + vertIndex;
+                mainTriangels.Add(mainTileTris[x,i] + vertIndex);
             }
         }
 
-        // Creates the submesh tiles and places them towards the end of the vertex list
+        
+        // Creates the submesh tiles and places them at the end of the vertex list
         for (int x = 0; x < subMeshTileVerts.Length; x++)
         {
-            verticies[subMeshVertIndex + x] = subMeshTileVerts[x] + position + TILEDISPLAYHEIGHT + getVertexHeight(position, subMeshTileVerts[x]);
+            submeshVerticies.Add(subMeshTileVerts[x] + position + TILEDISPLAYHEIGHT + getVertexHeight(position, subMeshTileVerts[x]));
             if (x > 7)
             {
                 FactionColour UvCoord = (from faction in settings.factionColours where (faction.FactionInt == -1) select faction).First();
-                uv[subMeshVertIndex + x] = UvCoord.UVCoord;
+                subMeshUv.Add(UvCoord.UVCoord);
             }
             else
             {
                 // Assign To Black
                 FactionColour UvCoord = (from faction in settings.factionColours where (faction.FactionInt == -10) select faction).First();
-                uv[subMeshVertIndex + x] = UvCoord.UVCoord;
+                subMeshUv.Add(UvCoord.UVCoord);
             }
         }
 
@@ -272,15 +281,13 @@ public class Region : MonoBehaviour
         {
             for (int i = 0; i < 3; i++)
             {
-                subMeshTriangles[subMeshTriIndex + x * 3 + i] = subMeshTileTris[x, i] + subMeshVertIndex;
+                subMeshTriangles.Add(subMeshTileTris[x, i] + subMeshVertIndex);
             }
         }
 
         // Allows it to properly cycle through the created array. 
-        triIndex += mainTileTris.Length;
         vertIndex += mainTileVerts.Length;
         subMeshVertIndex += subMeshTileVerts.Length;
-        subMeshTriIndex += subMeshTileTris.Length;
     }
 
     
