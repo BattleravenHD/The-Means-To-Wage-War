@@ -10,13 +10,16 @@ public class Region : MonoBehaviour
     [SerializeField]
     public static readonly int regionWidth = 11; // Must Be Odd or else regions dont slot together
 
+    [SerializeField]
+    private List<HexObject> PossibleHexs = new List<HexObject>();
+
     [HideInInspector] public GameSettings settings;
     public int regionX;
     public int regionY;
-    public float noiseScale = 0.25F;
     public float heightScale = 1f;
 
-    private MeshRenderer meshRenderer;
+    [HideInInspector] public Texture2D HeightMap;
+
     private MeshFilter meshFilter;
 
     GameData gameData;
@@ -24,7 +27,7 @@ public class Region : MonoBehaviour
     int subMeshVertIndex = 0;
 
 
-    Vector3 TILEDISPLAYHEIGHT = Vector3.up / 100;
+    Vector3 TILEDISPLAYHEIGHT = Vector3.up / 8;
 
     // submesh array to allow for a tile overlay to show tile borders and to do faction colours and other tile functions
     List<Vector3> verticies = new List<Vector3>();
@@ -34,69 +37,7 @@ public class Region : MonoBehaviour
     List<Vector2> uv = new List<Vector2>();
     List<Vector2> subMeshUv = new List<Vector2>();
 
-    public static readonly Vector3[] mainTileVerts = new Vector3[15]
-        {
-            new Vector3(0f, 0f, 1f),        //top
-            new Vector3(-0.86f, 0, 0.5f),   // left top
-            new Vector3(-0.86f, 0, 0),      // left mid
-            new Vector3(-0.86f, 0, -0.5f),  // left bottom 
-            new Vector3(0f, 0f, -1f),       // bottom 
-            new Vector3(0.86f, 0, 0.5f),    // right top
-            new Vector3(0.86f, 0, 0),       // right mid
-            new Vector3(0.86f, 0, -0.5f),   // right bottom
-
-            new Vector3(0f, 0, 0.5f),
-            new Vector3(-0.43f, 0, 0.25f),
-            new Vector3(-0.43f, 0, -0.25f),
-            new Vector3(0f, 0f, -0.5f),
-            new Vector3(0.43f, 0, 0.25f),
-            new Vector3(0.43f, 0, -0.25f),
-            new Vector3(0f, 0f, 0f)
-        };
-    public static readonly int[,] mainTileTris = new int[20, 3]
-    {
-        { 1, 0, 8},
-        { 9, 1, 8 },
-        { 2, 1, 9 },
-        { 2, 9, 10 },
-        { 3, 2, 10 },
-        { 3, 10, 11 },
-        { 3, 11, 4 },
-        { 7, 4, 11 },
-        { 11, 13, 7 },
-        { 13, 6, 7 },
-        { 13, 12, 6 },
-        { 12, 5, 6 },
-        { 12, 8, 5 },
-        { 5, 8, 0 },
-        { 9, 8, 14 },
-        { 10, 9, 14 },
-        { 11, 10, 14 },
-        { 13, 11, 14 },
-        { 12, 13, 14 },
-        { 8, 12, 14 }
-    };
-
-    public static readonly Vector2[] mainTileUVs = new Vector2[15]
-    {
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f),
-        new Vector2(1, 0.5f)
-    };
-
+    // Tile Outline Mesh
     public static readonly Vector3[] subMeshTileVerts = new Vector3[14]
         {
             new Vector3(0f, 0f, 1f),        //top
@@ -156,7 +97,6 @@ public class Region : MonoBehaviour
     void Start()
     {
         meshFilter = GetComponent<MeshFilter>();
-        meshRenderer = GetComponent<MeshRenderer>();
         gameData = GetComponentInParent<GameData>();
 
         GenerateMap();
@@ -211,24 +151,20 @@ public class Region : MonoBehaviour
     }
 
 
-    Vector3 getVertexHeight(Vector3 tilePos, Vector3 vertPos)
+    Vector3 getVertexHeight(Vector3 postion, Vector3 vertPos)
     {
-        // Width and height of the texture in pixels.
-        float xPos = (transform.position + tilePos + vertPos).x;
-        float yPos = (transform.position + tilePos + vertPos).z;
+        postion += transform.position;
 
-        // The origin of the sampled area in the plane.
-        float xOrg = 0;
-        float yOrg = 0;
+        float top = Mathf.Lerp(HeightMap.GetPixel(Mathf.FloorToInt(postion.x + vertPos.x), Mathf.CeilToInt(postion.z + vertPos.z)).r, HeightMap.GetPixel(Mathf.CeilToInt(postion.x + vertPos.x), Mathf.CeilToInt(postion.z + vertPos.z)).r, postion.x + vertPos.x - Mathf.Floor(postion.x + vertPos.x));
+        float bottom = Mathf.Lerp(HeightMap.GetPixel(Mathf.FloorToInt(postion.x + vertPos.x), Mathf.FloorToInt(postion.z + vertPos.z)).r, HeightMap.GetPixel(Mathf.CeilToInt(postion.x + vertPos.x), Mathf.FloorToInt(postion.z + vertPos.z)).r, postion.x + vertPos.x - Mathf.Floor(postion.x + vertPos.x));
+        
+        return new Vector3(0, Mathf.Lerp(bottom, top, postion.y + vertPos.y - Mathf.Floor(postion.y + vertPos.y)), 0);
+    }
 
-        // The number of cycles of the basic noise pattern that are repeated
-        // over the width and height of the texture.
-
-        float xCoord = (xOrg + xPos) * noiseScale;
-        float yCoord = (yOrg + yPos) * noiseScale;
-        float sample = Mathf.PerlinNoise(xCoord, yCoord);
-
-        return new Vector3(0, sample, 0) * heightScale;
+    Mesh GetTileType()
+    {
+        // To Return what type base to use
+        return PossibleHexs[0].Model;
     }
 
     // Creates a tile at a givin position 
@@ -240,22 +176,21 @@ public class Region : MonoBehaviour
             regionY * regionWidth * MapGenerator.MapWidth * regionHeight +
             regionBasedY * regionWidth * MapGenerator.MapWidth;
 
-        gameData.GameTiles[TileID] = new Tile(transform.position + position + getVertexHeight(position, mainTileVerts[14]), TileID, gameData, meshFilter, -subMeshTileUVs.Length * regionWidth * regionHeight + subMeshVertIndex, settings);
+        Mesh tileType = GetTileType();
+
+        gameData.GameTiles[TileID] = new Tile(transform.position + position + getVertexHeight(position, tileType.vertices[0]), TileID, gameData, meshFilter, -subMeshTileUVs.Length * regionWidth * regionHeight + subMeshVertIndex, settings);
 
         //Creates verts for tile based on predifined array of locations + location modifier 
-        for (int x = 0; x < mainTileVerts.Length; x++)
+        for (int x = 0; x < tileType.vertices.Length; x++)
         {
-            verticies.Add(mainTileVerts[x] + position + getVertexHeight(position, mainTileVerts[x]));
-            uv.Add(mainTileUVs[x]);
+            verticies.Add(tileType.vertices[x] + position + getVertexHeight(position, tileType.vertices[x]));
+            uv.Add(tileType.uv[x]);
         }
 
         //Creates tris based on tri array
-        for (int x = 0; x < 20; x++)
+        for (int x = 0; x < tileType.triangles.Length; x++)
         {
-            for (int i = 0; i < 3; i++)
-            {
-                mainTriangels.Add(mainTileTris[x,i] + vertIndex);
-            }
+            mainTriangels.Add(tileType.triangles[x] + vertIndex);
         }
 
         
@@ -286,9 +221,7 @@ public class Region : MonoBehaviour
         }
 
         // Allows it to properly cycle through the created array. 
-        vertIndex += mainTileVerts.Length;
+        vertIndex += tileType.vertices.Length;
         subMeshVertIndex += subMeshTileVerts.Length;
     }
-
-    
 }

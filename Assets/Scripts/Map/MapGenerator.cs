@@ -14,11 +14,43 @@ public class MapGenerator : MonoBehaviour
     [SerializeField] GameObject RegionPrefab;
     [SerializeField] GameObject CityPrefab;
 
+    public Texture2D HeightMap;
+
+
+    public float noiseScale = 0.25F;
+    public float heightScale = 1f;
+
+
     // Start is called before the first frame update
     void Start()
     {
+        CreateHeightMap();
         CreateMap();
         StartCoroutine(CreateCities());
+    }
+
+    void CreateHeightMap()
+    {
+        HeightMap = new Texture2D(MapWidth * Region.regionWidth * 2, MapHeight * Region.regionHeight * 2);
+
+        for (int x = 0; x < HeightMap.width; x++)
+        {
+            for (int y = 0; y < HeightMap.height; y++)
+            {
+                // The origin of the sampled area in the plane.
+                float xOrg = 0;
+                float yOrg = 0;
+
+                // The number of cycles of the basic noise pattern that are repeated
+                // over the width and height of the texture.
+
+                float xCoord = (xOrg + x) * noiseScale;
+                float yCoord = (yOrg + y) * noiseScale;
+                float sample = Mathf.PerlinNoise(xCoord, yCoord) * heightScale;
+
+                HeightMap.SetPixel(x, y, new Color(sample, sample, sample));
+            }
+        }
     }
 
     void CreateMap()
@@ -31,6 +63,7 @@ public class MapGenerator : MonoBehaviour
                 region.regionX = x;
                 region.regionY = y;
                 region.settings = settings;
+                region.HeightMap = HeightMap;
             }
         }
     }

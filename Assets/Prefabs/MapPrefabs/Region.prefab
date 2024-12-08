@@ -46,6 +46,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a09d69478219d046ac5f9e9fa358f69, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  PossibleHexs:
+  - {fileID: 11400000, guid: 98e5b2fd6bc4d484ab583acd9e6ef6d8, type: 2}
   settings: {fileID: 0}
   regionX: 0
   regionY: 0
